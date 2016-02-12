@@ -7,6 +7,7 @@ var mongoHost = process.env.MONGODB_HOST || 'localhost',
     mongoCfg = mongoHost+':'+mongoPort+'/agenda-test',
     expect = require('expect.js'),
     path = require('path'),
+    moment = require('moment-timezone'),
     cp = require('child_process'),
     mongo = require('mongoskin').db('mongodb://' + mongoCfg, {w: 0}),
     Agenda = require( path.join('..', 'index.js') ),
@@ -520,6 +521,28 @@ describe('Job', function() {
       job.computeNextRunAt();
       expect(job.attrs.nextRunAt.valueOf()).to.be(now.valueOf() + 60000);
     });
+
+    it('understands cron intervals with a timezone', function () {
+      var date = new Date('2015-01-01T06:01:00-00:00');
+      job.attrs.lastRunAt = date;
+      job.repeatEvery('0 6 * * *', {
+        timezone: 'GMT'
+      });
+      job.computeNextRunAt();
+      expect(moment(job.attrs.nextRunAt).tz('GMT').hour()).to.be(6);
+      expect(moment(job.attrs.nextRunAt).toDate().getDate()).to.be(moment(job.attrs.lastRunAt).add(1, 'days').toDate().getDate());
+    });
+
+    it('understands cron intervals with a timezone when last run is the same as the interval', function () {
+        var date = new Date('2015-01-01T06:00:00-00:00');
+        job.attrs.lastRunAt = date;
+        job.repeatEvery('0 6 * * *', {
+          timezone: 'GMT'
+       });
+       job.computeNextRunAt();
+       expect(moment(job.attrs.nextRunAt).tz('GMT').hour()).to.be(6);
+       expect(moment(job.attrs.nextRunAt).toDate().getDate()).to.be(moment(job.attrs.lastRunAt).add(1, 'days').toDate().getDate());
+     });
 
     describe('when repeat at time is invalid', function () {
       beforeEach(function () {
